@@ -66,6 +66,7 @@ XML_ELEMENT_TO_CLASS = {
     'BaseTable':         'XMTB',
     'ValueList':         'XMVL',
     'Layout':            'XML2',
+    'LayoutObject':      'XML2',
     'Theme':             'XMTH',
     'CustomMenu':        'ut16',
     'CustomMenuSet':     'ut16',
@@ -163,6 +164,9 @@ end try"""
 
 def detect_class_from_xml(xml_text):
     """Infer the correct FM clipboard class from the XML element content."""
+    if re.search(r'<fmxmlsnippet[^>]+type=["\']LayoutObjectList["\']', xml_text):
+        return 'XML2'
+
     # Try XML parsing first — more robust than regex and naturally handles the
     # menu-vs-steps priority: the first child of the fmxmlsnippet root is always
     # the correct type tag, so <Step> elements nested inside menu action blocks
