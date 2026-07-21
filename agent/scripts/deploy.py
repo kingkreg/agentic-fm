@@ -31,6 +31,7 @@ import json
 import os
 import subprocess
 import sys
+from typing import Optional, Tuple
 import urllib.error
 import urllib.request
 
@@ -96,7 +97,7 @@ def _resolve_companion_url(config: dict) -> str:
     return "http://local.hub:8765"
 
 
-def _resolve_target_file(config: dict) -> str | None:
+def _resolve_target_file(config: dict) -> Optional[str]:
     """Auto-resolve the FM file name to target for multi-file deploys.
 
     Priority:
@@ -243,8 +244,8 @@ def _switch_to_document(
 def _tier1(
     xml: str,
     companion_url: str,
-    target_script: str | None,
-    target_file: str | None = None,
+    target_script: Optional[str],
+    target_file: Optional[str] = None,
 ) -> dict:
     """Write XML to clipboard via companion, return paste instructions."""
     result = _post_json(f"{companion_url}/clipboard", {"xml": xml})
@@ -344,10 +345,10 @@ def _tier2(
     xml: str,
     companion_url: str,
     fm_app_name: str,
-    target_script: str | None,
+    target_script: Optional[str],
     auto_save: bool = False,
     select_all: bool = True,
-    target_file: str | None = None,
+    target_file: Optional[str] = None,
 ) -> dict:
     """Two-phase deploy: FM opens the script tab, companion pastes from outside.
 
@@ -453,7 +454,7 @@ def _is_local_macos() -> bool:
     return sys.platform == "darwin"
 
 
-def _check_accessibility() -> tuple[bool, str]:
+def _check_accessibility() -> Tuple[bool, str]:
     """Check whether the calling process has macOS Accessibility permission.
 
     Only meaningful when running natively on macOS (_is_local_macos() is True).
@@ -504,9 +505,9 @@ def _tier3(
     xml: str,
     companion_url: str,
     fm_app_name: str,
-    target_script: str | None,
+    target_script: Optional[str],
     auto_save: bool = False,
-    target_file: str | None = None,
+    target_file: Optional[str] = None,
 ) -> dict:
     """Create and name a script via monolithic AppleScript, then paste steps.
 
@@ -667,11 +668,11 @@ def _tier3(
 
 def deploy(
     xml_path: str,
-    target_script: str | None = None,
-    tier: int | None = None,
-    auto_save: bool | None = None,
+    target_script: Optional[str] = None,
+    tier: Optional[int] = None,
+    auto_save: Optional[bool] = None,
     select_all: bool = True,
-    target_file: str | None = None,
+    target_file: Optional[str] = None,
 ) -> dict:
     """
     Deploy a validated fmxmlsnippet XML file to FileMaker.

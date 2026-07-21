@@ -29,9 +29,11 @@ Usage:
 """
 
 import argparse
+import os
 import re
 import subprocess
 import sys
+import tempfile
 import xml.etree.ElementTree as ET
 
 # Optional fast path: PyObjC (pyobjc-framework-Cocoa) lets us read/write the
@@ -296,6 +298,23 @@ def _decode_file(raw_bytes):
     return raw_bytes.decode('utf-8', errors='replace')
 
 
+def _run_osascript(script):
+    """Run AppleScript, using a temp file when the script is too large for argv."""
+    if len(script) < 100000:
+        return subprocess.run(['osascript', '-e', script], capture_output=True, text=True)
+
+    fd, path = tempfile.mkstemp(prefix='fm_clipboard_', suffix='.applescript')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(script)
+        return subprocess.run(['osascript', path], capture_output=True, text=True)
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
 def write_to_clipboard(input_path, cls=None):
     """Write an fmxmlsnippet XML file to the clipboard as FM objects."""
     with open(input_path, 'rb') as f:
@@ -324,7 +343,7 @@ def write_to_clipboard(input_path, cls=None):
         hex_data = raw_bytes.hex()
         # «data XMSS<hexdata>» — the AppleScript binary descriptor literal syntax
         script = f'set the clipboard to \u00abdata {cls}{hex_data}\u00bb'
-        result = subprocess.run(['osascript', '-e', script], capture_output=True, text=True)
+        result = _run_osascript(script)
         if result.returncode != 0:
             print(f'ERROR: {result.stderr.strip()}', file=sys.stderr)
             sys.exit(1)
@@ -346,7 +365,7 @@ def _write_ut16_to_clipboard(xml_text, input_path):
     else:
         hex_data = utf16_bytes.hex()
         script = f'set the clipboard to \u00abdata ut16{hex_data}\u00bb'
-        result = subprocess.run(['osascript', '-e', script], capture_output=True, text=True)
+        result = _run_osascript(script)
         if result.returncode != 0:
             print(f'ERROR: {result.stderr.strip()}', file=sys.stderr)
             sys.exit(1)

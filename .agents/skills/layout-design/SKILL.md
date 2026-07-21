@@ -183,28 +183,40 @@ Before generating XML2, read an existing layout from `xml_parsed/layouts/` to un
 ls agent/xml_parsed/layouts/{solution}/ 2>/dev/null | head -5
 ```
 
-Read one layout file to use as a structural reference for object types, attribute patterns, and nesting.
+Read one layout file, or preferably read copied objects from the current FileMaker clipboard, to use as a structural reference for object types, attribute patterns, and nesting:
+
+```bash
+python3 agent/scripts/clipboard.py read agent/sandbox/readback-layout.xml
+```
+
+Also read `agent/docs/knowledge/layout-object-clipboard.md` before generating layout objects. It captures the native XML2 clipboard dialect FileMaker accepts in Layout Mode.
 
 #### Object generation rules
 
 - Wrap all objects in `<fmxmlsnippet type="LayoutObjectList">`
-- Each object is a `<LayoutObject>` element with a `type` attribute
+- Use a direct child `<Layout enclosingRectTop="..." enclosingRectLeft="..." enclosingRectBottom="..." enclosingRectRight="...">`
+- Each object is an `<Object type="Text|Field|Rect|Button|Portal|...">` element with a unique `key`
 - Position every object with `<Bounds top="T" left="L" bottom="B" right="R"/>`
-- Apply theme classes with `<LocalCSS name="ClassName"/>` — only use classes from `theme-classes.json`
-- Bind fields with `<FieldObj table="TOName" id="FieldID" name="FieldName"/>` — resolve all IDs from CONTEXT.json
-- Portal objects contain child `<LayoutObject>` elements for each column field
-- Button objects include `<Script id="N" name="ScriptName"/>` for the wired script and optional `<Parameter>` for the script parameter calculation
+- Prefer mutating copied native XML2 template objects rather than inventing object XML from scratch
+- For styled output, prefer copied objects that already use the solution's named theme styles. Preserve their `LocalCSS` `displayName`/style references and keep inline overrides minimal so future theme edits apply centrally.
+- If the developer has provided a style palette readback, such as `agent/sandbox/*style*palette*readback*.xml`, use those objects as the first-choice templates for text, panels, buttons, fields, and portals.
+- Do not fall back to individually styled/default objects unless no matching styled template exists. When a fallback is unavoidable, say so clearly and ask for another copied style object if the layout will be reused.
+- For portal fields, use `agent/sandbox/fumail-portal-field-style-map.json` when present: display-only fields use the `display` style template by default; only use the `edit` style template for fields intended to be edited directly in the portal row.
+- Bind fields with `<FieldObj><Name>TO::Field</Name>...<DDRInfo><Field name="FieldName" id="N" repetition="1" maxRepetition="1" table="TO"/></DDRInfo></FieldObj>` — resolve all IDs from CONTEXT.json
+- Portal objects contain native XML2 child `<Object>` elements for each column field
+- Button objects include `<ButtonObj>` containing a `Perform Script` step and `<Script id="N" name="ScriptName"/>`; if a parameter is needed, copy and mutate a known-good parameterized button template
+- Do not generate the simplified `<LayoutObject>` dialect; it does not paste reliably into Layout Mode
 
 #### Validation and deployment
 
 After generating XML2:
 
 1. Write to `agent/sandbox/{layout-name}-objects.xml`
-2. Run the validator:
+2. Run an XML parse check:
    ```bash
-   python3 agent/scripts/validate_snippet.py agent/sandbox/{layout-name}-objects.xml
+   python3 -m xml.etree.ElementTree agent/sandbox/{layout-name}-objects.xml >/dev/null
    ```
-3. Fix any validation errors
+3. Fix any XML parse errors
 4. Deploy per the current tier:
 
    **Tier 1** — load to clipboard and present paste instructions:
@@ -261,6 +273,6 @@ After deployment, provide guidance based on the output path:
 - All style class names must come from `theme-classes.json` — never invent class names. If no class fits, use the closest match and note the limitation.
 - FM layouts are **not responsive** — all objects use fixed pixel positions. The preview must reflect this (no flexbox, no percentage widths).
 - Portal child objects are positioned relative to the portal, not the layout.
-- The `XML2` clipboard class is auto-detected by `clipboard.py` from `<LayoutObject` elements.
+- The `XML2` clipboard class is auto-detected by `clipboard.py` from `<fmxmlsnippet type="LayoutObjectList">` and native `<Layout>` / `<Object>` elements.
 - Conditional formatting rules cannot be included in XML2 clipboard paste — note any conditional formatting in the spec for manual application.
 - Tab controls and slide controls have complex nesting — read an existing example from `xml_parsed/layouts/` before generating these object types.
